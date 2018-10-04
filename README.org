@@ -1,0 +1,114 @@
+#+Title: CFEngine Enteprise HA Environment
+
+
+* Bringing up the environment
+
+1) Initialize the environment
+
+   #+BEGIN_SRC shell
+     vagrant up node2 && vagrant up node1
+   #+END_SRC
+
+   Note: Ordering is important here
+   because libvirt will bring up the nodes in parallel and node2 must be up
+   before ~pcs cluster auth~.
+
+2) Finish cluster setup manually
+
+   On Nicks workstation, vagrant errors out after ~pcs cluster start --all~
+   
+   #+BEGIN_EXAMPLE
+     ==> node1: Restarting pcsd on the nodes in order to reload the certificates...
+     ==> node1: node1: Success
+     ==> node1: node2: Success
+     ==> node1: ++ pcs cluster start --all
+     ==> node1: node1: Unable to connect to node1 (Connection error)
+     ==> node1: node2: Unable to connect to node2 (Connection error)
+     ==> node1: Error: unable to start all nodes
+     ==> node1: node1: Unable to connect to node1 (Connection error)
+     ==> node1: node2: Unable to connect to node2 (Connection error)
+     The SSH command responded with a non-zero exit status. Vagrant
+     assumes that this means the command failed. The output for this command
+     should be in the log above. Please read the output to determine what
+     went wrong.
+   #+END_EXAMPLE
+   
+   The following commands must be run in order to finish configuring the cluster
+   tools.
+
+   #+BEGIN_SRC shell
+     pcs property set stonith-enabled=false
+     pcs property set no-quorum-policy=ignore
+     pcs cluster status
+     pcs status
+     pcs property list
+     pcs cluster enable --all node{1,2}
+   #+END_SRC
+
+3) Install CFEngine.
+ 
+   On node1:
+   
+   #+BEGIN_SRC shell
+     rpm -i /vagrant/cfengine-nova-hub-3.7.8-1.x86_64.rpm 
+     cf-agent --bootstrap node1
+     service cfengine3 stop
+     chkconfig cfengine3 off
+   #+END_SRC
+   
+   On node2:
+   
+   #+BEGIN_SRC shell
+     rpm -i /vagrant/cfengine-nova-hub-3.7.8-1.x86_64.rpm 
+     cf-agent --bootstrap node1
+     cf-agent --bootstrap node2
+     service cfengine3 stop
+     chkconfig cfengine3 off
+   #+END_SRC
+   
+* Configure PostgreSQL on node1
+   - ~pcs cluster stop --all~
+   - Create =/var/cfengine/state/pg/data/pg_arch= and
+     =/var/cfengine/state/pg/tmp= owned by the PostgreSQL user /cfpostgres/.
+     
+     #+BEGIN_SRC shell
+       mkdir -p /var/cfengine/state/pg/{data/pg_arch,tmp}
+       chown -R cfpostgres:cfpostgres /var/cfengine/state/pg/{data/pg_arch,tmp}
+     #+END_SRC
+     
+   - Configure the following settings in
+     =/var/cfengine/state/pg/data/postgresql.conf=.
+     - =wal_level = hot_standby=
+     - =max_wal_senders = 5=
+     - =wal_keep_segments = 32=
+     - =hot_standby = on=
+     - =restart_after_crash = off=
+     - =checkpoint_segments = 8=
+     - =wal_keep_segments = 8=
+     - =archive_mode = on=
+     - =archive_command = 'cp %p /var/cfengine/state/pg/pg_arch/%f'=
+ 
+   - Configure access to PostgreSQL by adding the following lines to =/var/cfengine/state/pg/data/pg_hba.conf=
+     - host replication all node2-pg trust
+     - host replication all node1-pg trust
+     - local replication all trust
+     - host replication all 127.0.0.1/32 trust
+     - host replication all ::1/128 trust
+
+   - Start postgresql
+     - ~cd /tmp && su cfpostgres -c "/var/cfengine/bin/pg_ctl -w -D /var/cfengine/state/pg/data -l /var/log/postgresql.log start"~
+
+* Configure PostgreSQL on node2
+
+1) Purge the PostgreSQL data directory so that the database can be initialized
+   from the state of node1.
+
+   #+BEGIN_SRC shell
+     rm -rf /var/cfengine/state/pg/data/* 
+   #+END_SRC
+
+2) Restore the database from a backup of node1.
+
+   #+BEGIN_SRC shell
+     su cfpostgres -c "cd /tmp && /var/cfengine/bin/pg_basebackup -h node1-pg -U cfpostgres -D /var/cfengine/state/pg/data -X stream -P" 
+   #+END_SRC 
