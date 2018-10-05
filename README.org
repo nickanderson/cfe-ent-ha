@@ -78,6 +78,7 @@
      
    - Configure the following settings in
      =/var/cfengine/state/pg/data/postgresql.conf=.
+     - =listen = "*"=
      - =wal_level = hot_standby=
      - =max_wal_senders = 5=
      - =wal_keep_segments = 32=
