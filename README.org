@@ -3,13 +3,13 @@
 
 * Bringing up the environment
 
-0) Download the CFEngine 3.12.0 hub RPM.
+1) Download the CFEngine 3.12.0 hub RPM.
 
    #+BEGIN_SRC shell
      wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.12.0/hub/redhat_6_x86_64/cfengine-nova-hub-3.12.0-1.x86_64.rpm"
    #+END_SRC
 
-1) Initialize the environment.
+2) Initialize the environment.
 
    #+BEGIN_SRC shell
      vagrant up node2 && vagrant up node1
@@ -19,7 +19,7 @@
    because libvirt will bring up the nodes in parallel and node2 must be up
    before ~pcs cluster auth~.
 
-2) Finish cluster setup manually (if /provisioning/ failed).
+3) Finish cluster setup manually (if /provisioning/ failed).
 
    #+BEGIN_EXAMPLE
      ==> node1: Restarting pcsd on the nodes in order to reload the certificates...
