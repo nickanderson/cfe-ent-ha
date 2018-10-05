@@ -50,6 +50,7 @@ Vagrant.configure("2") do |config|
         pcs resource defaults migration-threshold="1"
         pcs cluster status
         pcs status
+        pcs resource create cfvirtip IPaddr2 ip=192.168.10.100 cidr_netmask=24 --group cfengine
         # pcs cluster enable --all node{1,2}
         echo DONE setting up cluster tools
     SHELL
