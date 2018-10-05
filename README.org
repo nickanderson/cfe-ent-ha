@@ -136,7 +136,7 @@
        master_ip="192.168.10.100" restart_on_promote="true" \
        logfile="/var/log/postgresql.log" \
        config="/var/cfengine/state/pg/data/postgresql.conf" \
-       check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/pg_arch/%f %p" \
+       check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/data/pg_arch/%f %p" \
        op monitor timeout="60s" interval="3s" on-fail="restart" role="Master" \
        op monitor timeout="60s" interval="4s" on-fail="restart"
    #+END_SRC
