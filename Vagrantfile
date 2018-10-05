@@ -46,6 +46,8 @@ Vagrant.configure("2") do |config|
         #sleep 1m
         pcs property set stonith-enabled=false
         pcs property set no-quorum-policy=ignore
+        pcs resource defaults resource-stickiness="INFINITY"
+        pcs resource defaults migration-threshold="1"
         pcs cluster status
         pcs status
         # pcs cluster enable --all node{1,2}

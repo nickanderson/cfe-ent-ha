@@ -92,9 +92,6 @@
    - Configure access to PostgreSQL by adding the following lines to =/var/cfengine/state/pg/data/pg_hba.conf=
      - host replication all node2-pg trust
      - host replication all node1-pg trust
-     - local replication all trust
-     - host replication all 127.0.0.1/32 trust
-     - host replication all ::1/128 trust
 
    - Start postgresql
      - ~cd /tmp && su cfpostgres -c "/var/cfengine/bin/pg_ctl -w -D /var/cfengine/state/pg/data -l /var/log/postgresql.log start"~
@@ -113,3 +110,315 @@
    #+BEGIN_SRC shell
      su cfpostgres -c "cd /tmp && /var/cfengine/bin/pg_basebackup -h node1-pg -U cfpostgres -D /var/cfengine/state/pg/data -X stream -P" 
    #+END_SRC 
+
+3) Set the recovery mode for PostgreSQL.
+
+   #+BEGIN_SRC shell
+     cat << EOF > /var/cfengine/state/pg/data/recovery.conf
+standby_mode = 'on'
+#192.168.10.100 is the shared over cluster IP address of active/master cluster node
+primary_conninfo = 'host=192.168.10.100 port=5432 user=cfpostgres application_name=node2'
+#not needed but recommended for faster failover and more stable cluster operations
+restore_command = 'cp /var/cfengine/state/pg/pg_arch/%f %p'
+EOF
+   #+END_SRC
+
+* Start and check PostgreSQL then stop it
+
+1) Start PostgreSQL by the following command, *first on the node1 and then node2*.
+
+   #+BEGIN_SRC shell
+     pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -D /var/cfengine/state/pg/data -l /var/log/postgresql.log start"; popd
+   #+END_SRC
+
+2) Check that *node2* is working as a hot standby.
+
+   #+BEGIN_SRC shell
+     /var/cfengine/bin/psql cfdb -c "SELECT pg_is_in_recovery();"  # should give just 't'
+   #+END_SRC
+
+3) Check that *node1* is replicating.
+
+   #+BEGIN_SRC shell
+     /var/cfengine/bin/psql cfdb -c "SELECT * FROM pg_stat_replication;"  # should give state for replication to node2
+   #+END_SRC
+
+4) Stop PostgreSQL *on both nodes*.
+
+   #+BEGIN_SRC shell
+     pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -D /var/cfengine/state/pg/data -l /var/log/postgresql.log stop"; popd
+   #+END_SRC
+
+* Configure the PostgreSQL cluster resource
+
+1) Create the base resource.
+
+   #+BEGIN_SRC shell
+     pcs resource create cfpgsql pgsql  \
+       pgctl="/var/cfengine/bin/pg_ctl" \
+       psql="/var/cfengine/bin/psql"    \
+       pgdata="/var/cfengine/state/pg/data" \
+       pgdb="cfdb" pgdba="cfpostgres" repuser="cfpostgres" \
+       tmpdir="/var/cfengine/state/pg/tmp" \
+       rep_mode="async" node_list="node1 node2" \
+       primary_conninfo_opt="keepalives_idle=60 keepalives_interval=5 keepalives_count=5" \
+       master_ip="192.168.10.100" restart_on_promote="true" \
+       logfile="/var/log/postgresql.log" \
+       config="/var/cfengine/state/pg/data/postgresql.conf" \
+       check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/pg_arch/%f %p" \
+       op monitor timeout="60s" interval="3s" on-fail="restart" role="Master" \
+       op monitor timeout="60s" interval="4s" on-fail="restart"
+   #+END_SRC
+
+2) Transform/wrap the resource into a Master/Slave resource.
+
+   #+BEGIN_SRC shell
+     pcs resource master mscfpgsql cfpgsql master-max=1 master-node-max=1 clone-max=2 clone-node-max=1 notify=true
+   #+END_SRC
+
+3) Set the constraints for the resource.
+
+   #+BEGIN_SRC shell
+     pcs constraint colocation add cfengine with Master mscfpgsql INFINITY
+     pcs constraint order promote mscfpgsql then start cfengine symmetrical=false score=INFINITY
+     pcs constraint order demote mscfpgsql then stop cfengine symmetrical=false score=0
+     pcs constraint location mscfpgsql prefers node1
+   #+END_SRC
+
+4) Check the constraints configuration.
+
+   #+BEGIN_SRC shell
+     pcs constraint
+   #+END_SRC
+
+   Should give:
+
+   #+BEGIN_SRC
+     Location Constraints:
+       Resource: mscfpgsql
+         Enabled on: node1 (score:INFINITY)
+     Ordering Constraints:
+       promote mscfpgsql then start cfengine (score:INFINITY) (non-symmetrical)
+       demote mscfpgsql then stop cfengine (score:0) (non-symmetrical)
+     Colocation Constraints:
+       cfengine with mscfpgsql (score:INFINITY) (rsc-role:Started) (with-rsc-role:Master)
+     Ticket Constraints:
+   #+END_SRC
+
+5) Check the cluster status.
+
+   #+BEGIN_SRC shell
+     crm_mon -Afr1
+   #+END_SRC
+
+   Should give:
+
+   #+BEGIN_SRC
+     Stack: cman
+     Current DC: node2 (version 1.1.18-3.el6-bfe4e80420) - partition with quorum
+     Last updated: Fri Oct  5 10:03:01 2018
+     Last change: Fri Oct  5 09:58:49 2018 by root via crm_attribute on node1
+
+     2 nodes configured
+     3 resources configured
+
+     Online: [ node1 node2 ]
+
+     Full list of resources:
+
+      Resource Group: cfengine
+          cfvirtip	(ocf::heartbeat:IPaddr2):	Started node1
+      Master/Slave Set: mscfpgsql [cfpgsql]
+          Masters: [ node1 ]
+          Slaves: [ node2 ]
+
+     Node Attributes:
+     * Node node1:
+         + cfpgsql-data-status             	: LATEST    
+         + cfpgsql-master-baseline         	: 0000000004000090
+         + cfpgsql-receiver-status         	: ERROR     
+         + cfpgsql-status                  	: PRI       
+         + master-cfpgsql                  	: 1000      
+     * Node node2:
+         + cfpgsql-data-status             	: STREAMING|ASYNC
+         + cfpgsql-receiver-status         	: normal    
+         + cfpgsql-status                  	: HS:async  
+         + master-cfpgsql                  	: 100       
+
+     Migration Summary:
+     * Node node2:
+     * Node node1:
+   #+END_SRC
+
+* Check that PostgreSQL HA works
+
+1) Take the *node1* down.
+
+   #+BEGIN_SRC shell
+     vagrant halt node1
+   #+END_SRC
+
+2) Check that the migration happened and *node2* is now the active (master) node.
+
+   #+BEGIN_SRC shell
+     crm_mon -Afr1
+   #+END_SRC
+
+   Should give:
+
+   #+BEGIN_SRC
+     Stack: cman
+     Current DC: node2 (version 1.1.18-3.el6-bfe4e80420) - partition with quorum
+     Last updated: Fri Oct  5 10:04:21 2018
+     Last change: Fri Oct  5 10:03:48 2018 by root via crm_attribute on node2
+
+     2 nodes configured
+     3 resources configured
+
+     Online: [ node2 ]
+     OFFLINE: [ node1 ]
+
+     Full list of resources:
+
+      Resource Group: cfengine
+          cfvirtip	(ocf::heartbeat:IPaddr2):	Started node2
+      Master/Slave Set: mscfpgsql [cfpgsql]
+          Masters: [ node2 ]
+          Stopped: [ node1 ]
+
+     Node Attributes:
+     * Node node2:
+         + cfpgsql-data-status             	: LATEST    
+         + cfpgsql-master-baseline         	: 0000000005000090
+         + cfpgsql-receiver-status         	: ERROR     
+         + cfpgsql-status                  	: PRI       
+         + master-cfpgsql                  	: 1000      
+
+     Migration Summary:
+     * Node node2:
+   #+END_SRC
+
+3) Start *node1* again.
+
+   #+BEGIN_SRC shell
+     vagrat up node1
+   #+END_SRC
+
+4) Check the cluster status.
+
+   #+BEGIN_SRC shell
+     crm_mon -Afr1
+   #+END_SRC
+
+   Should give something like this (note the /DISCONNECT/ status on *node1*):
+
+   #+BEGIN_SRC shell
+     Stack: cman
+     Current DC: node2 (version 1.1.18-3.el6-bfe4e80420) - partition with quorum
+     Last updated: Fri Oct  5 10:05:51 2018
+     Last change: Fri Oct  5 10:03:48 2018 by root via crm_attribute on node2
+
+     2 nodes configured
+     3 resources configured
+
+     Online: [ node1 node2 ]
+
+     Full list of resources:
+
+      Resource Group: cfengine
+          cfvirtip	(ocf::heartbeat:IPaddr2):	Started node2
+      Master/Slave Set: mscfpgsql [cfpgsql]
+          Masters: [ node2 ]
+          Stopped: [ node1 ]
+
+     Node Attributes:
+     * Node node1:
+         + cfpgsql-data-status             	: DISCONNECT
+         + cfpgsql-status                  	: STOP      
+         + master-cfpgsql                  	: -INFINITY 
+     * Node node2:
+         + cfpgsql-data-status             	: LATEST    
+         + cfpgsql-master-baseline         	: 0000000005000090
+         + cfpgsql-receiver-status         	: ERROR     
+         + cfpgsql-status                  	: PRI       
+         + master-cfpgsql                  	: 1000      
+
+     Migration Summary:
+     * Node node2:
+     * Node node1:
+        cfpgsql: migration-threshold=1 fail-count=1000000 last-failure='Fri Oct  5 10:05:33 2018'
+
+     Failed Actions:
+     * cfpgsql_start_0 on node1 'unknown error' (1): call=15, status=complete, exitreason='',
+         last-rc-change='Fri Oct  5 10:05:33 2018', queued=0ms, exec=121ms
+   #+END_SRC
+
+5) Check that it is the concistency lock causing the failure.
+
+   #+BEGIN_SRC shell
+     pcs resource debug-start cfpgsql
+   #+END_SRC
+
+   Should give:
+
+   #+BEGIN_SRC
+     Operation start for cfpgsql:0 (ocf:heartbeat:pgsql) returned: 'unknown error' (1)
+      >  stderr: ERROR: My data may be inconsistent. You have to remove /var/cfengine/state/pg/tmp/PGSQL.lock file to force start.
+   #+END_SRC
+
+6) Remove the lock and start the resource.
+
+   #+BEGIN_SRC shell
+     rm -f /var/cfengine/state/pg/tmp/PGSQL.lock
+     pcs resource debug-start cfpgsql
+   #+END_SRC
+
+7) Check the cluster status.
+
+   #+BEGIN_SRC shell
+     crm_mon -Afr1
+   #+END_SRC
+
+   Should give something like this (i.e. states swapped between node1 and node2 compared to the original state):
+
+   #+BEGIN_SRC shell
+     Stack: cman
+     Current DC: node2 (version 1.1.18-3.el6-bfe4e80420) - partition with quorum
+     Last updated: Fri Oct  5 12:07:38 2018
+     Last change: Fri Oct  5 10:09:42 2018 by root via crm_attribute on node2
+
+     2 nodes configured
+     3 resources configured
+
+     Online: [ node1 node2 ]
+
+     Full list of resources:
+
+      Resource Group: cfengine
+          cfvirtip	(ocf::heartbeat:IPaddr2):	Started node2
+      Master/Slave Set: mscfpgsql [cfpgsql]
+          Masters: [ node2 ]
+          Stopped: [ node1 ]
+
+     Node Attributes:
+     * Node node1:
+         + cfpgsql-data-status             	: STREAMING|ASYNC
+         + cfpgsql-receiver-status         	: normal    
+         + cfpgsql-status                  	: HS:async  
+         + master-cfpgsql                  	: 100       
+     * Node node2:
+         + cfpgsql-data-status             	: LATEST    
+         + cfpgsql-master-baseline         	: 0000000005000090
+         + cfpgsql-receiver-status         	: ERROR     
+         + cfpgsql-status                  	: PRI       
+         + master-cfpgsql                  	: 1000      
+
+     Migration Summary:
+     * Node node2:
+     * Node node1:
+        cfpgsql: migration-threshold=1 fail-count=1000000 last-failure='Fri Oct  5 10:05:33 2018'
+
+     Failed Actions:
+     * cfpgsql_start_0 on node1 'unknown error' (1): call=15, status=complete, exitreason='',
+         last-rc-change='Fri Oct  5 10:05:33 2018', queued=0ms, exec=121ms
+   #+END_SRC
