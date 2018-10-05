@@ -86,8 +86,33 @@
 3) Check that *node1* is replicating.
 
    #+BEGIN_SRC shell
-     /var/cfengine/bin/psql cfdb -c "SELECT * FROM pg_stat_replication;"  # should give state for replication to node2
+     /var/cfengine/bin/psql -x cfdb -c "SELECT * FROM pg_stat_replication;"  # should give state for replication to node2
    #+END_SRC
+
+   Expected output:
+
+   #+BEGIN_EXAMPLE
+     -[ RECORD 1 ]----+------------------------------
+     pid              | 30731
+     usesysid         | 10
+     usename          | cfpostgres
+     application_name | node2
+     client_addr      | 192.168.10.11
+     client_hostname  | node2-pg
+     client_port      | 60036
+     backend_start    | 2018-10-05 19:06:56.599435+00
+     backend_xmin     |
+     state            | streaming
+     sent_lsn         | 0/301F098
+     write_lsn        | 0/301F098
+     flush_lsn        | 0/301F098
+     replay_lsn       | 0/301F098
+     write_lag        | 00:00:00.000377
+     flush_lag        | 00:00:00.000645
+     replay_lag       | 00:00:00.00096
+     sync_priority    | 0
+     sync_state       | async
+   #+END_EXAMPLE
 
 4) Stop PostgreSQL *on both nodes*.
 
