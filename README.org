@@ -66,17 +66,22 @@
 
 * Start and check PostgreSQL then stop it
 
-1) Start PostgreSQL by the following command *on the node2*.
+1) On *node2* start PostgreSQL with the following command.
 
    #+BEGIN_SRC shell
      pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -D /var/cfengine/state/pg/data -l /var/log/postgresql.log start"; popd
    #+END_SRC
 
-2) Check that *node2* is working as a hot standby.
+2) On *node2*, check that PostgreSQL is working as a hot standby.
 
    #+BEGIN_SRC shell
-     /var/cfengine/bin/psql cfdb -c "SELECT pg_is_in_recovery();"  # should give just 't'
+     /var/cfengine/bin/psql -x cfdb -c "SELECT pg_is_in_recovery();"  # should give just 't'
    #+END_SRC
+
+   #+BEGIN_EXAMPLE
+     -[ RECORD 1 ]-----+--
+     pg_is_in_recovery | t
+   #+END_EXAMPLE
 
 3) Check that *node1* is replicating.
 
@@ -109,7 +114,7 @@
      sync_state       | async
    #+END_EXAMPLE
 
-4) Stop PostgreSQL *on both nodes*.
+4) Stop PostgreSQL first on *node2*, then on *node1* nodes.
 
    #+BEGIN_SRC shell
      pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -D /var/cfengine/state/pg/data -l /var/log/postgresql.log stop"; popd
@@ -403,6 +408,7 @@
      * cfpgsql_start_0 on node1 'unknown error' (1): call=15, status=complete, exitreason='',
          last-rc-change='Fri Oct  5 10:05:33 2018', queued=0ms, exec=121ms
    #+END_SRC
+
 * Configure CFEngine HA
 
 1) Bootstrap *both nodes to node1*.
@@ -411,56 +417,70 @@
      cf-agent --bootstrap node1-pg
    #+END_SRC
 
-2) Bootstrap the *node2* to itself.
+#+BEGIN_NOTES
+  I don't believe that the intention is to bootstrap to the postgres interface.
+  Because the replication interfaces are intended to be on a private networki,
+  this should just bootstrap the to the node hostname.
+#+END_NOTES
+
+1) Bootstrap the *node2* to itself.
 
    #+BEGIN_SRC shell
      cf-agent --bootstrap node2-pg
    #+END_SRC
 
-3) Write the HA config JSON *on both nodes*.
-
-   #+BEGIN_SRC shell
-     cat <<EOF > /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
-{
-  "192.168.100.10":
-    {
-     "sha": "c14a17325b9a1bdb0417662806f579e4187247317a9e1739fce772992ee422f6",
-     "internal_ip": "192.168.100.10"
-    },
-  "192.168.100.11":
-    {
-     "sha": "b492eb4b59541c02a13bd52efe17c6a720e8a43b7c8f8803f3fc85dee7951e4f",
-     "internal_ip": "192.168.100.11"
-    }
-}
-EOF
-   #+END_SRC
-
-4) Get the host keys and replace them in the config JSON *on both nodes*.
+2) Get the host keys and replace them in the config JSON *on both nodes*.
 
    #+BEGIN_SRC shell
      cf-key -s
    #+END_SRC
 
+   #+BEGIN_EXAMPLE
+     Direction  IP              Name   Last connection           Key
+     Incoming   192.168.0.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
+     Outgoing   192.168.0.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
+     Incoming   192.168.100.10  -      Mon Oct  8 17:00:32 2018  SHA=a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749
+     Outgoing   192.168.100.10  -      Mon Oct  8 16:59:43 2018  SHA=a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749
+     Total Entries: 4
+   #+END_EXAMPLE
+
+
+3) Write the HA config JSON *on both nodes* with the correct host key SHAs.
+
+
    #+BEGIN_SRC shell
-     sed -i 's/c14a17325b9a1bdb0417662806f579e4187247317a9e1739fce772992ee422f6/KEY_OF_THE_NODE1/' /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
-     sed -i 's/b492eb4b59541c02a13bd52efe17c6a720e8a43b7c8f8803f3fc85dee7951e4f/KEY_OF_THE_NODE2/' /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
+     node1pksha="a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749"
+     node2pksha="704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b"
+     cat <<EOF > /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
+     {
+       "192.168.100.10":
+         {
+          "sha": "$node1pksha",
+          "internal_ip": "192.168.100.10"
+         },
+       "192.168.100.11":
+         {
+          "sha": "$node2pksha",
+          "internal_ip": "192.168.100.11"
+         }
+     }
+     EOF
    #+END_SRC
 
-5) Enable HA *on both nodes* in the =/var/cfengine/masterfiles/controls/def.cf=
+4) Enable HA *on both nodes* in the =/var/cfengine/masterfiles/controls/def.cf=
    file by uncommenting the following line and commenting out the line above it.
 
    #+BEGIN_SRC
      #"enable_cfengine_enterprise_hub_ha" expression => "enterprise_edition";
    #+END_SRC
 
-6) Trigger the policy update *on both nodes*.
+5) Trigger the policy update *on both nodes*.
 
    #+BEGIN_SRC shell
      cf-agent -Kf update.cf
    #+END_SRC
 
-7) Restart CFEngine (may not be needed?).
+6) Restart CFEngine (may not be needed?).
 
    #+BEGIN_SRC shell
      service cfengine3 restart
