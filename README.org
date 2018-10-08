@@ -138,7 +138,7 @@
        config="/var/cfengine/state/pg/data/postgresql.conf" \
        check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/data/pg_arch/%f %p" \
        op monitor timeout="60s" interval="3s" on-fail="restart" role="Master" \
-       op monitor timeout="60s" interval="4s" on-fail="restart"
+       op monitor timeout="60s" interval="4s" on-fail="restart" --disable
    #+END_SRC
 
 2) Transform/wrap the resource into a Master/Slave resource.
@@ -156,7 +156,13 @@
      pcs constraint location mscfpgsql prefers node1
    #+END_SRC
 
-4) Check the constraints configuration.
+4) Enable the resource.
+
+   #+BEGIN_SRC shell
+     pcs resource enable mscfpgsql --wait=30
+   #+END_SRC
+
+5) Check the constraints configuration.
 
    #+BEGIN_SRC shell
      pcs constraint
@@ -176,7 +182,7 @@
      Ticket Constraints:
    #+END_SRC
 
-5) Check the cluster status.
+6) Check the cluster status.
 
    #+BEGIN_SRC shell
      crm_mon -Afr1
