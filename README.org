@@ -49,20 +49,15 @@
 
 * Configure PostgreSQL on *node2*
 
-1) Purge the PostgreSQL data directory so that the database can be initialized
-   from the state of node1.
+1) Purge the PostgreSQL data directory and initialize the database from the
+   state of node1.
 
    #+BEGIN_SRC shell
-     rm -rf /var/cfengine/state/pg/data/* 
+     rm -rf /var/cfengine/state/pg/data/*
+     pushd /tmp; su cfpostgres -c "cd /tmp && /var/cfengine/bin/pg_basebackup -h node1-pg -U cfpostgres -D /var/cfengine/state/pg/data -X stream -P"; popd
    #+END_SRC
 
-2) Restore the database from a backup of node1.
-
-   #+BEGIN_SRC shell
-     su cfpostgres -c "cd /tmp && /var/cfengine/bin/pg_basebackup -h node1-pg -U cfpostgres -D /var/cfengine/state/pg/data -X stream -P" 
-   #+END_SRC 
-
-3) Set the recovery mode for PostgreSQL.
+2) Set the recovery mode for PostgreSQL.
 
    #+BEGIN_SRC shell
      cp /vagrant/recovery.conf /var/cfengine/state/pg/data/recovery.conf
