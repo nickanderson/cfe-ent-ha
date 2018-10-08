@@ -282,7 +282,7 @@
 3) Start *node1* again.
 
    #+BEGIN_SRC shell
-     vagrat up node1
+     vagrant up node1
    #+END_SRC
 
 4) Check the cluster status.
