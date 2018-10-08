@@ -452,17 +452,17 @@ wal receiver is not running in the master and the attribute shows status as
 </parameters>
 
 <actions>
-<action name="start" timeout="120" />
-<action name="stop" timeout="120" />
-<action name="status" timeout="60" />
-<action name="monitor" depth="0" timeout="30" interval="30"/>
-<action name="monitor" depth="0" timeout="30" interval="29" role="Master" />
-<action name="promote" timeout="120" />
-<action name="demote" timeout="120" />
-<action name="notify"   timeout="90" />
-<action name="meta-data" timeout="5" />
-<action name="validate-all" timeout="5" />
-<action name="methods" timeout="5" />
+<action name="start" timeout="120s" />
+<action name="stop" timeout="120s" />
+<action name="status" timeout="60s" />
+<action name="monitor" depth="0" timeout="30s" interval="30s"/>
+<action name="monitor" depth="0" timeout="30s" interval="29s" role="Master" />
+<action name="promote" timeout="120s" />
+<action name="demote" timeout="120s" />
+<action name="notify"   timeout="90s" />
+<action name="meta-data" timeout="5s" />
+<action name="validate-all" timeout="5s" />
+<action name="methods" timeout="5s" />
 </actions>
 </resource-agent>
 EOF
@@ -575,6 +575,8 @@ pgsql_real_start() {
         check_socket_dir
     fi
 
+    check_stat_temp_directory
+
     if [ "$OCF_RESKEY_rep_mode" = "slave" ]; then
         rm -f $RECOVERY_CONF
         make_recovery_conf || return $OCF_ERR_GENERIC
@@ -633,6 +635,7 @@ pgsql_real_start() {
 
 pgsql_replication_start() {
     local rc
+    local synchronous_standby_names
 
     # initializing for replication
     change_pgsql_status "$NODENAME" "STOP"
@@ -653,6 +656,13 @@ pgsql_replication_start() {
     if [ $? -ne $OCF_SUCCESS ]; then
         return $OCF_ERR_GENERIC
     fi
+
+    synchronous_standby_names=$(exec_sql "${CHECK_SYNCHRONOUS_STANDBY_NAMES_SQL}")
+    if [ -n "${synchronous_standby_names}" ]; then
+        ocf_log err "Invalid synchronous_standby_names is set in postgresql.conf."
+        return $OCF_ERR_CONFIGURED
+    fi
+
     change_pgsql_status "$NODENAME" "HS:alone"
     return $OCF_SUCCESS
 }
@@ -1801,6 +1811,7 @@ pgsql_validate_all() {
     local check_config_rc
     local rep_mode_string
     local socket_directories
+    local rc
 
     version=`cat $OCF_RESKEY_pgdata/PG_VERSION`
 
@@ -1883,8 +1894,10 @@ pgsql_validate_all() {
         PROMOTE_ME="1000"
 
         CHECK_MS_SQL="select pg_is_in_recovery()"
+        CHECK_SYNCHRONOUS_STANDBY_NAMES_SQL="show synchronous_standby_names"
         ocf_version_cmp "$version" "10"
-        if [ $? -eq 1 ] || [ $? -eq 2 ]; then
+        rc=$?
+        if [ $rc -eq 1 ]||[ $rc -eq 2 ]; then
             CHECK_XLOG_LOC_SQL="select pg_last_wal_replay_lsn(),pg_last_wal_receive_lsn()"
         else
             CHECK_XLOG_LOC_SQL="select pg_last_xlog_replay_location(),pg_last_xlog_receive_location()"
@@ -1914,7 +1927,7 @@ pgsql_validate_all() {
         if [ $check_config_rc -eq 0 ]; then
             rep_mode_string="include '$REP_MODE_CONF' # added by pgsql RA"
             if [ "$OCF_RESKEY_rep_mode" = "sync" ]; then
-                if ! grep -q "$rep_mode_string" $OCF_RESKEY_config; then
+                if ! grep -q "^[[:space:]]*$rep_mode_string" $OCF_RESKEY_config; then
                     ocf_log info "adding include directive into $OCF_RESKEY_config"
                     echo "$rep_mode_string" >> $OCF_RESKEY_config
                 fi
@@ -1941,12 +1954,13 @@ pgsql_validate_all() {
 
     if use_replication_slot; then
         ocf_version_cmp "$version" "9.4"
-        if [ $? -eq 0 -o $? -eq 3 ]; then
+        rc=$?
+        if [ $rc -eq 0 ]||[ $rc -eq 3 ]; then
             ocf_log err "Replication slot needs PostgreSQL 9.4 or higher."
             return $OCF_ERR_CONFIGURED
         fi
 
-        echo "$OCF_RESKEY_replication_slot_name" | grep -q -e [^a-z0-9_]
+        echo "$OCF_RESKEY_replication_slot_name" | grep -q -e '[^a-z0-9_]'
         if [ $? -eq 0 ]; then
             ocf_log err "Invalid replication_slot_name($OCF_RESKEY_replication_slot_name). only use lower case letters, numbers, and the underscore character."
             return $OCF_ERR_CONFIGURED
@@ -1962,7 +1976,7 @@ pgsql_validate_all() {
 #
 
 check_log_file() {
-    if [ ! -f "$1" ]
+    if [ ! -e "$1" ]
     then
         touch $1 > /dev/null 2>&1
         chown $OCF_RESKEY_pgdba:`getent passwd $OCF_RESKEY_pgdba | cut -d ":" -f 4` $1
@@ -1975,6 +1989,43 @@ check_log_file() {
     fi
 
     return 0
+}
+
+#
+# Check if we need to create stats temp directory in tmpfs
+#
+
+check_stat_temp_directory() {
+    local stats_temp
+
+    stats_temp=`get_pgsql_param stats_temp_directory`
+
+    if [ -z "$stats_temp" ]; then
+        return
+    fi
+
+    if [ "${stats_temp#/}" = "$stats_temp" ]; then
+        stats_temp="$OCF_RESKEY_pgdata/$stats_temp"
+    fi
+
+    if [ -d "$stats_temp" ]; then
+        return
+    fi
+
+    if ! mkdir -p "$stats_temp"; then
+        ocf_log err "Can't create directory $stats_temp"
+        exit $OCF_ERR_PERM
+    fi
+
+    if ! chown $OCF_RESKEY_pgdba: "$stats_temp"; then
+        ocf_log err "Can't change ownership for $stats_temp"
+        exit $OCF_ERR_PERM
+    fi
+
+    if ! chmod 700 "$stats_temp"; then
+        ocf_log err "Can't change permissions for $stats_temp"
+        exit $OCF_ERR_PERM
+    fi
 }
 
 #
