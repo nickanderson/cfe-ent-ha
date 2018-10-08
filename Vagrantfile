@@ -57,6 +57,11 @@ Vagrant.configure("2") do |config|
         rpm -i /vagrant/cfengine-nova-hub-3.12.0-1.x86_64.rpm
         service cfengine3 stop
         chkconfig cfengine3 off
+        cat <<EOF > /var/cfengine/ha.cfg
+cmp_master: PRI
+cmp_slave: HS:async,HS:sync,HS:alone
+cmd: /usr/sbin/crm_attribute -l reboot -n cfpgsql-status -G -q
+EOF
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
@@ -101,6 +106,11 @@ Vagrant.configure("2") do |config|
         rpm -i /vagrant/cfengine-nova-hub-3.12.0-1.x86_64.rpm
         service cfengine3 stop
         chkconfig cfengine3 off
+        cat <<EOF > /var/cfengine/ha.cfg
+cmp_master: PRI
+cmp_slave: HS:async,HS:sync,HS:alone
+cmd: /usr/sbin/crm_attribute -l reboot -n cfpgsql-status -G -q
+EOF
     SHELL
   end
 end

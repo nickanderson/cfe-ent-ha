@@ -403,3 +403,65 @@
      * cfpgsql_start_0 on node1 'unknown error' (1): call=15, status=complete, exitreason='',
          last-rc-change='Fri Oct  5 10:05:33 2018', queued=0ms, exec=121ms
    #+END_SRC
+* Configure CFEngine HA
+
+1) Bootstrap *both nodes to node1*.
+
+   #+BEGIN_SRC shell
+     cf-agent --bootstrap node1-pg
+   #+END_SRC
+
+2) Bootstrap the *node2* to itself.
+
+   #+BEGIN_SRC shell
+     cf-agent --bootstrap node2-pg
+   #+END_SRC
+
+3) Write the HA config JSON *on both nodes*.
+
+   #+BEGIN_SRC shell
+     cat <<EOF > /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
+{
+  "192.168.100.10":
+    {
+     "sha": "c14a17325b9a1bdb0417662806f579e4187247317a9e1739fce772992ee422f6",
+     "internal_ip": "192.168.100.10"
+    },
+  "192.168.100.11":
+    {
+     "sha": "b492eb4b59541c02a13bd52efe17c6a720e8a43b7c8f8803f3fc85dee7951e4f",
+     "internal_ip": "192.168.100.11"
+    }
+}
+EOF
+   #+END_SRC
+
+4) Get the host keys and replace them in the config JSON *on both nodes*.
+
+   #+BEGIN_SRC shell
+     cf-key -s
+   #+END_SRC
+
+   #+BEGIN_SRC shell
+     sed -i 's/c14a17325b9a1bdb0417662806f579e4187247317a9e1739fce772992ee422f6/KEY_OF_THE_NODE1/' /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
+     sed -i 's/b492eb4b59541c02a13bd52efe17c6a720e8a43b7c8f8803f3fc85dee7951e4f/KEY_OF_THE_NODE2/' /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
+   #+END_SRC
+
+5) Enable HA *on both nodes* in the =/var/cfengine/masterfiles/controls/def.cf=
+   file by uncommenting the following line and commenting out the line above it.
+
+   #+BEGIN_SRC
+     #"enable_cfengine_enterprise_hub_ha" expression => "enterprise_edition";
+   #+END_SRC
+
+6) Trigger the policy update *on both nodes*.
+
+   #+BEGIN_SRC shell
+     cf-agent -Kf update.cf
+   #+END_SRC
+
+7) Restart CFEngine (may not be needed?).
+
+   #+BEGIN_SRC shell
+     service cfengine3 restart
+   #+END_SRC
