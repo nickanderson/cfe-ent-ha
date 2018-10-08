@@ -188,13 +188,13 @@
      crm_mon -Afr1
    #+END_SRC
 
-   Should give:
+   After a minute or so it should look similar to this:
 
-   #+BEGIN_SRC
+   #+BEGIN_EXAMPLE
      Stack: cman
      Current DC: node2 (version 1.1.18-3.el6-bfe4e80420) - partition with quorum
-     Last updated: Fri Oct  5 10:03:01 2018
-     Last change: Fri Oct  5 09:58:49 2018 by root via crm_attribute on node1
+     Last updated: Mon Oct  8 19:25:09 2018
+     Last change: Mon Oct  8 19:24:59 2018 by root via crm_attribute on node1
 
      2 nodes configured
      3 resources configured
@@ -210,22 +210,22 @@
           Slaves: [ node2 ]
 
      Node Attributes:
-     * Node node1:
+     ,* Node node1:
          + cfpgsql-data-status             	: LATEST    
-         + cfpgsql-master-baseline         	: 0000000004000090
-         + cfpgsql-receiver-status         	: ERROR     
+         + cfpgsql-master-baseline         	: 0000000004000098
+         + cfpgsql-receiver-status         	: normal (master)
          + cfpgsql-status                  	: PRI       
          + master-cfpgsql                  	: 1000      
-     * Node node2:
+     ,* Node node2:
          + cfpgsql-data-status             	: STREAMING|ASYNC
          + cfpgsql-receiver-status         	: normal    
          + cfpgsql-status                  	: HS:async  
          + master-cfpgsql                  	: 100       
 
      Migration Summary:
-     * Node node2:
-     * Node node1:
-   #+END_SRC
+     ,* Node node1:
+     ,* Node node2:
+   #+END_EXAMPLE
 
    *If the output doesn't look like the example above (one Master, one Slave,
    one =PRI= status, one =HS:async= or =HS:alone= status), try:*
@@ -339,7 +339,21 @@
          last-rc-change='Fri Oct  5 10:05:33 2018', queued=0ms, exec=121ms
    #+END_SRC
 
-5) Check that it is the concistency lock causing the failure.
+5) Re-initalize node1 with a basebackup from node2.
+
+   #+BEGIN_SRC shell
+     rm -rf /var/cfengine/state/pg/data/*
+     pushd /tmp; su cfpostgres -c "cd /tmp && /var/cfengine/bin/pg_basebackup -h node2-pg -U cfpostgres -D /var/cfengine/state/pg/data -X stream -P"; popd
+   #+END_SRC
+
+6) Set the recovery mode for PostgreSQL.
+
+   #+BEGIN_SRC shell
+     cp /vagrant/recovery.conf /var/cfengine/state/pg/data/recovery.conf
+     chown --reference /var/cfengine/state/pg/data/postgresql.conf /var/cfengine/state/pg/data/recovery.conf
+   #+END_SRC
+
+7) Check that it is the concistency lock causing the failure.
 
    #+BEGIN_SRC shell
      pcs resource debug-start cfpgsql
@@ -352,14 +366,14 @@
       >  stderr: ERROR: My data may be inconsistent. You have to remove /var/cfengine/state/pg/tmp/PGSQL.lock file to force start.
    #+END_SRC
 
-6) Remove the lock and start the resource.
+8) Remove the lock and start the resource.
 
    #+BEGIN_SRC shell
      rm -f /var/cfengine/state/pg/tmp/PGSQL.lock
      pcs resource debug-start cfpgsql
    #+END_SRC
 
-7) Check the cluster status.
+9) Check the cluster status.
 
    #+BEGIN_SRC shell
      crm_mon -Afr1
@@ -409,6 +423,13 @@
          last-rc-change='Fri Oct  5 10:05:33 2018', queued=0ms, exec=121ms
    #+END_SRC
 
+
+How to get node1 back from stopped state? Restarting the cluster seems to work, but is there another way?
+
+#+BEGIN_SRC shell
+  pcs cluster stop --all && pcs cluster start --all
+#+END_SRC
+
 * Configure CFEngine HA
 
 1) Bootstrap *both nodes to node1*.
@@ -417,19 +438,13 @@
      cf-agent --bootstrap node1-pg
    #+END_SRC
 
-#+BEGIN_NOTES
-  I don't believe that the intention is to bootstrap to the postgres interface.
-  Because the replication interfaces are intended to be on a private networki,
-  this should just bootstrap the to the node hostname.
-#+END_NOTES
-
-1) Bootstrap the *node2* to itself.
+2) Bootstrap the *node2* to itself.
 
    #+BEGIN_SRC shell
      cf-agent --bootstrap node2-pg
    #+END_SRC
 
-2) Get the host keys and replace them in the config JSON *on both nodes*.
+3) Get the host keys and replace them in the config JSON *on both nodes*.
 
    #+BEGIN_SRC shell
      cf-key -s
@@ -449,8 +464,8 @@
 
 
    #+BEGIN_SRC shell
-     node1pksha="a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749"
-     node2pksha="704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b"
+     node1pksha="47df23c4c6eaee944bbc238ce354501bdd6479e5db7e14821ce5d972109af0c7"
+     node2pksha="807d6398a5fefbcaf03771250eeff16fcdc3e156230bf4f686c66dd919cb8003"
      cat <<EOF > /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json
      {
        "192.168.100.10":
@@ -480,7 +495,11 @@
      cf-agent -Kf update.cf
    #+END_SRC
 
-6) Restart CFEngine (may not be needed?).
+6) Restart CFEngine (may not be needed?). I think this is necessary if MP is to
+   be run on the VIP. Also in order for MP to show status reports must be
+   collected from both node1 and node2. Until then it may show that HA is not
+   configured or that it is degraded because one of the hosts is not reporting
+   with HA status.
 
    #+BEGIN_SRC shell
      service cfengine3 restart

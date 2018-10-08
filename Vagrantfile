@@ -113,4 +113,23 @@ cmd: /usr/sbin/crm_attribute -l reboot -n cfpgsql-status -G -q
 EOF
     SHELL
   end
+
+  config.vm.define "node3".to_sym do |node|
+    node.vm.network :private_network, ip: "192.168.0.12"
+
+    node.vm.provision "shell", inline: <<-SHELL
+        set -xe
+        hostname node3
+        echo "192.168.0.10 node1" >> /etc/hosts
+        echo "192.168.0.11 node2" >> /etc/hosts
+        echo "192.168.0.12 node3" >> /etc/hosts
+        echo "192.168.10.10 node1-pg" >> /etc/hosts
+        echo "192.168.10.11 node2-pg" >> /etc/hosts
+    SHELL
+
+    node.vm.provision "shell", inline: <<-SHELL
+        rpm -i /vagrant/cfengine-nova-3.12.0-1.el6.x86_64.rpm
+        cf-agent --bootstrap node1
+    SHELL
+  end
 end
