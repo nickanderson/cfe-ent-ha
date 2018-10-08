@@ -225,7 +225,7 @@
    one =PRI= status, one =HS:async= or =HS:alone= status), try:*
 
    #+BEGIN_SRC shell
-     pcs cluster stop && pcs cluster start
+     pcs cluster stop --all && pcs cluster start --all
    #+END_SRC
 
    and check the status again.
