@@ -34,8 +34,8 @@ Vagrant.configure("2") do |config|
         service pcsd start
         chkconfig pcsd on
         cp /vagrant/pgsql /usr/lib/ocf/resource.d/heartbeat/pgsql
-        chown --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr,pgsql}
-        chmod --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr,pgsql}
+        chown --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
+        chmod --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
         printf "hacluster\\nhacluster\\n" | passwd hacluster
         pcs cluster auth node{1,2} -u hacluster -p hacluster
         pcs cluster setup --name cfcluster node{1,2}
@@ -93,8 +93,8 @@ Vagrant.configure("2") do |config|
         printf "hacluster\\nhacluster\\n" | passwd hacluster
         rm -f /usr/lib/ocf/resource.d/heartbeat/pgsql
         cp -f /vagrant/pgsql /usr/lib/ocf/resource.d/heartbeat/pgsql
-        chown --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr,pgsql}
-        chmod --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr,pgsql}
+        chown --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
+        chmod --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
