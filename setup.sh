@@ -103,4 +103,4 @@ run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expressi
 run_all_parallel '/var/cfengine/bin/cf-agent -Kf update.cf'
 run_all_parallel 'service cfengine3 restart'
 
-echo "Done! Go ahead and try logging in at https:/192.168.10.100"
+echo "Done! Go ahead and try logging in at https://192.168.10.100"
