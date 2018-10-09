@@ -125,11 +125,12 @@ EOF
         echo "192.168.0.12 node3" >> /etc/hosts
         echo "192.168.10.10 node1-pg" >> /etc/hosts
         echo "192.168.10.11 node2-pg" >> /etc/hosts
+        echo "192.168.10.100 ha-hub" >> /etc/hosts
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
         rpm -i /vagrant/cfengine-nova-3.12.0-1.el6.x86_64.rpm
-        cf-agent --bootstrap node1
+        cf-agent --bootstrap ha-hub
     SHELL
   end
 end
