@@ -31,6 +31,9 @@ function second() {
     echo $2
 }
 
+echo "Getting the sudo cookie"
+sudo echo "Thanks! Now let's hope it won't timeout too soon."
+
 sleep_period=""
 if [ $# -gt 0 ]; then
     sleep_period=$1
