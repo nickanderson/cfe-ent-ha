@@ -41,6 +41,9 @@ function second() {
 echo "Getting the sudo cookie"
 sudo echo "Thanks! Now let's hope it won't timeout too soon."
 
+# just in case there was a previous setup running
+vagrant destroy
+
 sleep_period=""
 if [ $# -gt 0 ]; then
     sleep_period=$1
