@@ -10,7 +10,7 @@
 
 . ./bashvagsible.sh
 
-function vagrant_up() {
+function vagrant_cluster_up() {
     # $1 -- optional argument specifying a sleep period between provisioning
     #       node2 and node1
     set -x
@@ -38,7 +38,7 @@ sleep_period=""
 if [ $# -gt 0 ]; then
     sleep_period=$1
 fi
-vagrant_up $sleep_period
+vagrant_cluster_up $sleep_period
 
 nodes=`get_nodes`
 first_node=`first $nodes`
@@ -102,5 +102,7 @@ run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expressi
 
 run_all_parallel '/var/cfengine/bin/cf-agent -Kf update.cf'
 run_all_parallel 'service cfengine3 restart'
+
+vagrant up node3
 
 echo "Done! Go ahead and try logging in at https://192.168.10.100"
