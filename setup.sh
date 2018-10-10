@@ -21,7 +21,7 @@ function vagrant_cluster_up() {
     # $1 -- optional argument specifying a sleep period between provisioning
     #       node2 and node1
     set -x
-    vagrant up --no-provision node{1,2}
+    vagrant up --provider=libvirt --no-provision node{1,2}
     vagrant provision node2
     if [ $# -gt 0 ]; then
         sleep $1;
@@ -113,6 +113,6 @@ run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expressi
 run_all_parallel '/var/cfengine/bin/cf-agent -Kf update.cf'
 run_all_parallel 'service cfengine3 restart'
 
-vagrant up node3
+vagrant up --provider=libvirt node3
 
 echo "Done! Go ahead and try logging in at https://192.168.130.100"
