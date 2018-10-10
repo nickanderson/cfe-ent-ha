@@ -15,8 +15,8 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "node1".to_sym do |node|
-    node.vm.network :private_network, ip: "192.168.0.10"
-    node.vm.network :private_network, ip: "192.168.10.10"
+    node.vm.network :private_network, ip: "192.168.30.10"
+    node.vm.network :private_network, ip: "192.168.130.10"
     node.vm.network :private_network, ip: "192.168.100.10"
 
     # node.vm.provision "shell", inline: <<-SHELL
@@ -27,12 +27,12 @@ Vagrant.configure("2") do |config|
         set -xe
         yum -y install pcs pacemaker cman fence-agents
         hostname node1
-        echo "192.168.0.10 node1" >> /etc/hosts
-        echo "192.168.0.11 node2" >> /etc/hosts
-        echo "192.168.10.10 node1-pg" >> /etc/hosts
-        echo "192.168.10.11 node2-pg" >> /etc/hosts
-        echo "192.168.10.12 node3" >> /etc/hosts
-        echo "192.168.10.100 ha-hub" >> /etc/hosts
+        echo "192.168.30.10 node1" >> /etc/hosts
+        echo "192.168.30.11 node2" >> /etc/hosts
+        echo "192.168.130.10 node1-pg" >> /etc/hosts
+        echo "192.168.130.11 node2-pg" >> /etc/hosts
+        echo "192.168.130.12 node3" >> /etc/hosts
+        echo "192.168.130.100 ha-hub" >> /etc/hosts
         service pcsd start
         chkconfig pcsd on
         cp /vagrant/pgsql /usr/lib/ocf/resource.d/heartbeat/pgsql
@@ -49,7 +49,7 @@ Vagrant.configure("2") do |config|
         pcs resource defaults migration-threshold="1"
         pcs cluster status
         pcs status
-        pcs resource create cfvirtip IPaddr2 ip=192.168.10.100 cidr_netmask=24 --group cfengine
+        pcs resource create cfvirtip IPaddr2 ip=192.168.130.100 cidr_netmask=24 --group cfengine
         pcs cluster enable --all node{1,2}
         pcs status
     SHELL
@@ -79,8 +79,8 @@ EOF
   end
 
   config.vm.define "node2".to_sym do |node|
-    node.vm.network :private_network, ip: "192.168.0.11"
-    node.vm.network :private_network, ip: "192.168.10.11"
+    node.vm.network :private_network, ip: "192.168.30.11"
+    node.vm.network :private_network, ip: "192.168.130.11"
     node.vm.network :private_network, ip: "192.168.100.11"
 
     # node.vm.provision "shell", inline: <<-SHELL
@@ -91,12 +91,12 @@ EOF
         set -xe
         yum -y install pcs pacemaker cman fence-agents
         hostname node2
-        echo "192.168.0.10 node1" >> /etc/hosts
-        echo "192.168.0.11 node2" >> /etc/hosts
-        echo "192.168.10.10 node1-pg" >> /etc/hosts
-        echo "192.168.10.11 node2-pg" >> /etc/hosts
-        echo "192.168.10.12 node3" >> /etc/hosts
-        echo "192.168.10.100 ha-hub" >> /etc/hosts
+        echo "192.168.30.10 node1" >> /etc/hosts
+        echo "192.168.30.11 node2" >> /etc/hosts
+        echo "192.168.130.10 node1-pg" >> /etc/hosts
+        echo "192.168.130.11 node2-pg" >> /etc/hosts
+        echo "192.168.130.12 node3" >> /etc/hosts
+        echo "192.168.130.100 ha-hub" >> /etc/hosts
         service pcsd start
         chkconfig pcsd on
         printf "hacluster\\nhacluster\\n" | passwd hacluster
@@ -119,17 +119,17 @@ EOF
   end
 
   config.vm.define "node3".to_sym do |node|
-    node.vm.network :private_network, ip: "192.168.10.12"
+    node.vm.network :private_network, ip: "192.168.130.12"
 
     node.vm.provision "shell", inline: <<-SHELL
         set -xe
         hostname node3
-        echo "192.168.0.10 node1" >> /etc/hosts
-        echo "192.168.0.11 node2" >> /etc/hosts
-        echo "192.168.10.10 node1-pg" >> /etc/hosts
-        echo "192.168.10.11 node2-pg" >> /etc/hosts
-        echo "192.168.10.12 node3" >> /etc/hosts
-        echo "192.168.10.100 ha-hub" >> /etc/hosts
+        echo "192.168.30.10 node1" >> /etc/hosts
+        echo "192.168.30.11 node2" >> /etc/hosts
+        echo "192.168.130.10 node1-pg" >> /etc/hosts
+        echo "192.168.130.11 node2-pg" >> /etc/hosts
+        echo "192.168.130.12 node3" >> /etc/hosts
+        echo "192.168.130.100 ha-hub" >> /etc/hosts
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL

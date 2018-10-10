@@ -97,7 +97,7 @@
      usesysid         | 10
      usename          | cfpostgres
      application_name | node2
-     client_addr      | 192.168.10.11
+     client_addr      | 192.168.130.11
      client_hostname  | node2-pg
      client_port      | 60036
      backend_start    | 2018-10-05 19:06:56.599435+00
@@ -133,7 +133,7 @@
        tmpdir="/var/cfengine/state/pg/tmp" \
        rep_mode="async" node_list="node1 node2" \
        primary_conninfo_opt="keepalives_idle=60 keepalives_interval=5 keepalives_count=5" \
-       master_ip="192.168.10.100" restart_on_promote="true" \
+       master_ip="192.168.130.100" restart_on_promote="true" \
        logfile="/var/log/postgresql.log" \
        config="/var/cfengine/state/pg/data/postgresql.conf" \
        check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/data/pg_arch/%f %p" \
@@ -452,8 +452,8 @@ How to get node1 back from stopped state? Restarting the cluster seems to work, 
 
    #+BEGIN_EXAMPLE
      Direction  IP              Name   Last connection           Key
-     Incoming   192.168.0.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
-     Outgoing   192.168.0.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
+     Incoming   192.168.30.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
+     Outgoing   192.168.30.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
      Incoming   192.168.100.10  -      Mon Oct  8 17:00:32 2018  SHA=a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749
      Outgoing   192.168.100.10  -      Mon Oct  8 16:59:43 2018  SHA=a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749
      Total Entries: 4

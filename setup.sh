@@ -71,7 +71,7 @@ run_on $first_node 'pcs resource create cfpgsql pgsql  \
   tmpdir="/var/cfengine/state/pg/tmp" \
   rep_mode="async" node_list="node1 node2" \
   primary_conninfo_opt="keepalives_idle=60 keepalives_interval=5 keepalives_count=5" \
-  master_ip="192.168.10.100" restart_on_promote="true" \
+  master_ip="192.168.130.100" restart_on_promote="true" \
   logfile="/var/log/postgresql.log" \
   config="/var/cfengine/state/pg/data/postgresql.conf" \
   check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/data/pg_arch/%f %p" \
@@ -112,4 +112,4 @@ run_all_parallel 'service cfengine3 restart'
 
 vagrant up node3
 
-echo "Done! Go ahead and try logging in at https://192.168.10.100"
+echo "Done! Go ahead and try logging in at https://192.168.130.100"
