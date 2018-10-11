@@ -17,7 +17,6 @@ Vagrant.configure("2") do |config|
   config.vm.define "node1".to_sym do |node|
     node.vm.network :private_network, ip: "192.168.30.10"
     node.vm.network :private_network, ip: "192.168.130.10"
-    node.vm.network :private_network, ip: "192.168.100.10"
 
     # node.vm.provision "shell", inline: <<-SHELL
     #     yum -y update
@@ -81,7 +80,6 @@ EOF
   config.vm.define "node2".to_sym do |node|
     node.vm.network :private_network, ip: "192.168.30.11"
     node.vm.network :private_network, ip: "192.168.130.11"
-    node.vm.network :private_network, ip: "192.168.100.11"
 
     # node.vm.provision "shell", inline: <<-SHELL
     #     yum -y update
