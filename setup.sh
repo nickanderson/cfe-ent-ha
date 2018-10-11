@@ -100,8 +100,8 @@ run_all_serial '/var/cfengine/bin/cf-agent --bootstrap node1-pg'
 run_on $second_node '/var/cfengine/bin/cf-agent --bootstrap node2-pg'
 
 cf_key_s=`run_on_silent $second_node '/var/cfengine/bin/cf-key -s'`
-first_key=` echo "$cf_key_s" | sed -r -e '/192\.168\.10\.10/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
-second_key=`echo "$cf_key_s" | sed -r -e '/192\.168\.10\.11/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
+first_key=` echo "$cf_key_s" | sed -r -e '/192\.168\.130\.10/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
+second_key=`echo "$cf_key_s" | sed -r -e '/192\.168\.130\.11/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
 
 run_all_parallel 'cp /vagrant/ha_info.json.template /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json'
 run_all_parallel "sed -ri s/@NODE1_PKSHA@/$first_key/ /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json"
