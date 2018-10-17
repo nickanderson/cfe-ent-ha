@@ -109,6 +109,7 @@ run_all_parallel "sed -ri s/@NODE2_PKSHA@/$second_key/ /var/cfengine/masterfiles
 run_on $first_node 'cat /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json'
 
 run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expression/d" -e "s/#\"enable_cfengine_enterprise_hub_ha\"/\"enable_cfengine_enterprise_hub_ha\"/" /var/cfengine/masterfiles/controls/def.cf'
+run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expression/d" -e "s/#\"enable_cfengine_enterprise_hub_ha\"/\"enable_cfengine_enterprise_hub_ha\"/" /var/cfengine/masterfiles/controls/update_def.cf'
 
 run_all_parallel '/var/cfengine/bin/cf-agent -Kf update.cf'
 run_all_parallel 'service cfengine3 restart'
