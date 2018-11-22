@@ -113,6 +113,7 @@ run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expressi
 
 run_all_parallel '/var/cfengine/bin/cf-agent -Kf update.cf'
 run_all_parallel 'service cfengine3 restart'
+run_all_parallel 'chkconfig cfengine3 on'
 
 vagrant up --provider=libvirt node3
 
