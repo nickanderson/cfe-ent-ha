@@ -40,6 +40,7 @@ Vagrant.configure("2") do |config|
         printf "hacluster\\nhacluster\\n" | passwd hacluster
         pcs cluster auth node{1,2} -u hacluster -p hacluster
         pcs cluster setup --name cfcluster node{1,2}
+        sleep 1m
         pcs cluster start --all
         sleep 1m
         pcs property set stonith-enabled=false
