@@ -1,6 +1,18 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+if ENV['HUB_PKG']
+  hub_pkg=ENV['HUB_PKG'].to_s
+else
+  raise StandardError, "HUB_PKG environment variable not set"
+end
+
+if ENV['HOSTS_PKG']
+  hosts_pkg=ENV['HOSTS_PKG'].to_s
+else
+  raise StandardError, "HOSTS_PKG environment variable not set"
+end
+
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
 # backwards compatibility). Please don't change it unless you know what
@@ -56,7 +68,7 @@ Vagrant.configure("2") do |config|
 
     node.vm.provision "shell", inline: <<-SHELL
         set -xe
-        rpm -i /vagrant/cfengine-nova-hub-3.12.0-1.x86_64.rpm
+        rpm -i /vagrant/#{hub_pkg}
         service cfengine3 stop
         chkconfig cfengine3 off
         cat <<EOF > /var/cfengine/ha.cfg
@@ -106,7 +118,7 @@ EOF
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
-        rpm -i /vagrant/cfengine-nova-hub-3.12.0-1.x86_64.rpm
+        rpm -i /vagrant/#{hub_pkg}
         service cfengine3 stop
         chkconfig cfengine3 off
         cat <<EOF > /var/cfengine/ha.cfg
@@ -132,7 +144,7 @@ EOF
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
-        rpm -i /vagrant/cfengine-nova-3.12.0-1.el6.x86_64.rpm
+        rpm -i /vagrant/#{hosts_pkg}
         cf-agent --bootstrap ha-hub
     SHELL
   end

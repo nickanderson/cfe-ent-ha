@@ -10,13 +10,6 @@
 
 . ./bashvagsible.sh
 
-if ! test -f "cfengine-nova-hub-3.12.0-1.x86_64.rpm"; then
-    wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.12.0/hub/redhat_6_x86_64/cfengine-nova-hub-3.12.0-1.x86_64.rpm"
-fi
-if ! test -f "cfengine-nova-3.12.0-1.el6.x86_64.rpm"; then
-    wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.12.0/agent/agent_rhel6_x86_64/cfengine-nova-3.12.0-1.el6.x86_64.rpm"
-fi
-
 function vagrant_cluster_up() {
     # $1 -- optional argument specifying a sleep period between provisioning
     #       node2 and node1
