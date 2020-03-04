@@ -4,18 +4,7 @@
 # $1 -- optional argument specifying a sleep period between provisioning
 #       node2 and node1
 
-# TODO: rewrite this using fabric once
-# https://github.com/fabric/fabric/issues/1888 and
-# https://github.com/paramiko/paramiko/issues/1316 are fixed.
-
 . ./bashvagsible.sh
-
-if ! test -f "cfengine-nova-hub-3.12.0-1.x86_64.rpm"; then
-    wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.12.0/hub/redhat_6_x86_64/cfengine-nova-hub-3.12.0-1.x86_64.rpm"
-fi
-if ! test -f "cfengine-nova-3.12.0-1.el6.x86_64.rpm"; then
-    wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.12.0/agent/agent_rhel6_x86_64/cfengine-nova-3.12.0-1.el6.x86_64.rpm"
-fi
 
 function vagrant_cluster_up() {
     # $1 -- optional argument specifying a sleep period between provisioning
@@ -42,7 +31,7 @@ echo "Getting the sudo cookie"
 sudo echo "Thanks! Now let's hope it won't timeout too soon."
 
 # just in case there was a previous setup running
-vagrant destroy
+vagrant destroy -f || true;
 
 sleep_period=""
 if [ $# -gt 0 ]; then
@@ -54,17 +43,20 @@ nodes=`get_nodes`
 first_node=`first $nodes`
 second_node=`second $nodes`
 
+run_all_parallel 'cp /vagrant/standby.conf /var/cfengine/state/pg/data/standby.conf'
 run_on $first_node  'pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -w -D /var/cfengine/state/pg/data -l /var/log/postgresql.log start"; popd'
 run_on $second_node 'rm -rf /var/cfengine/state/pg/data/*'
 run_on $second_node 'pushd /tmp; su cfpostgres -c "cd /tmp && /var/cfengine/bin/pg_basebackup -h node1-pg -U cfpostgres -D /var/cfengine/state/pg/data -X stream -P"; popd'
-run_on $second_node 'cp /vagrant/recovery.conf /var/cfengine/state/pg/data/recovery.conf'
-run_on $second_node 'chown --reference /var/cfengine/state/pg/data/postgresql.conf /var/cfengine/state/pg/data/recovery.conf'
+run_on $second_node 'chown --reference /var/cfengine/state/pg/data/postgresql.conf /var/cfengine/state/pg/data/standby.conf'
+run_on $second_node 'touch /var/cfengine/state/pg/data/standby.signal'
 
 run_on $second_node 'pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -D /var/cfengine/state/pg/data -l /var/log/postgresql.log start"; popd'
 run_on $second_node '/var/cfengine/bin/psql -x cfdb -c "SELECT pg_is_in_recovery();"'
 run_on $first_node  '/var/cfengine/bin/psql -x cfdb -c "SELECT * FROM pg_stat_replication;"'
 
 run_all_parallel 'pushd /tmp; su cfpostgres -c "/var/cfengine/bin/pg_ctl -D /var/cfengine/state/pg/data -l /var/log/postgresql.log stop"; popd'
+run_all_parallel 'rm -f /var/cfengine/state/pg/data/standby.signal'
+run_all_parallel 'sed -i "/standby\.conf/d" /var/cfengine/state/pg/data/postgresql.conf'
 
 run_on $first_node 'pcs resource create cfpgsql pgsql  \
   pgctl="/var/cfengine/bin/pg_ctl" \
@@ -96,8 +88,8 @@ echo "$status"
 lines=`echo "$status" | sed -r -e '/(Masters|Slaves): \[/!d' | wc -l`
 test $lines -eq 2               # one master, one slave
 
-run_all_serial '/var/cfengine/bin/cf-agent --bootstrap node1-pg'
-run_on $second_node '/var/cfengine/bin/cf-agent --bootstrap node2-pg'
+run_all_serial '/var/cfengine/bin/cf-agent --bootstrap node1-pg --skip-bootstrap-policy-run'
+run_on $second_node '/var/cfengine/bin/cf-agent --bootstrap node2-pg --skip-bootstrap-policy-run'
 
 cf_key_s=`run_on_silent $second_node '/var/cfengine/bin/cf-key -s'`
 first_key=` echo "$cf_key_s" | sed -r -e '/192\.168\.130\.10/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
@@ -111,7 +103,8 @@ run_on $first_node 'cat /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_
 run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expression/d" -e "s/#\"enable_cfengine_enterprise_hub_ha\"/\"enable_cfengine_enterprise_hub_ha\"/" /var/cfengine/masterfiles/controls/def.cf'
 run_all_parallel 'sed -ri -e "/\s+\"enable_cfengine_enterprise_hub_ha\" expression/d" -e "s/#\"enable_cfengine_enterprise_hub_ha\"/\"enable_cfengine_enterprise_hub_ha\"/" /var/cfengine/masterfiles/controls/update_def.cf'
 
-run_all_parallel '/var/cfengine/bin/cf-agent -Kf update.cf'
+run_all_parallel '/var/cfengine/bin/cf-agent -KIf update.cf'
+run_all_parallel '/var/cfengine/bin/cf-agent -KI'
 run_all_parallel 'service cfengine3 restart'
 run_all_parallel 'chkconfig cfengine3 on'
 

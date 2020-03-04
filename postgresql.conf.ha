@@ -669,3 +669,4 @@ restart_after_crash = off		# reinitialize after backend crash?
 #------------------------------------------------------------------------------
 
 # Add settings for extensions here
+include 'standby.conf'
