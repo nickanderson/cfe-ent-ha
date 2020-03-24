@@ -1,15 +1,49 @@
 #+Title: CFEngine Enteprise HA Environment
 
+* Bringing up the environment automatically
 
-* Bringing up the environment
-
-1) Download the CFEngine 3.12.0 hub RPM.
+1) Install the vagrant libvirt plugin if you don't already have it.
 
    #+BEGIN_SRC shell
-     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.12.0/hub/redhat_6_x86_64/cfengine-nova-hub-3.12.0-1.x86_64.rpm"
+     vagrant plugin install libvirt
    #+END_SRC
 
-2) Initialize the environment.
+3) Download the CFEngine hub and agent package RPMs for EL6.
+
+   #+BEGIN_SRC shell
+     wget "http://buildcache.cloud.cfengine.com/packages/packages-hub-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_HUB_x86_64_linux_redhat_6/cfengine-nova-hub-3.15.1-1.el6.x86_64.rpm"
+     wget "http://buildcache.cloud.cfengine.com/packages/packages-agent-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_x86_64_linux_redhat_6/cfengine-nova-3.15.1-1.el6.x86_64.rpm"
+   #+END_SRC
+   
+4) Set the =HUB_PKG= and =HOSTS_PKG= environment variable.
+
+   #+BEGIN_SRC shell
+     export HUB_PKG="cfengine-nova-hub-3.15.1-1.el6.x86_64.rpm"
+     export HOSTS_PKG="cfengine-nova-3.15.1-1.el6.x86_64.rpm"
+   #+END_SRC
+   
+5) Initialize the environment.
+
+   #+BEGIN_SRC shell
+    ./setup.sh
+   #+END_SRC
+
+* Bringing up the environment manually
+
+1) Install the vagrant libvirt plugin if you don't already have it.
+
+   #+BEGIN_SRC shell
+     vagrant plugin install libvirt
+   #+END_SRC
+
+2) Download the CFEngine hub and agent package RPMs for EL6.
+
+   #+BEGIN_SRC shell
+     wget "http://buildcache.cloud.cfengine.com/packages/packages-hub-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_HUB_x86_64_linux_redhat_6/cfengine-nova-hub-3.15.1-1.el6.x86_64.rpm"
+     wget "http://buildcache.cloud.cfengine.com/packages/packages-agent-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_x86_64_linux_redhat_6/cfengine-nova-3.15.1-1.el6.x86_64.rpm"
+   #+END_SRC
+   
+3) Initialize the environment.
 
    #+BEGIN_SRC shell
      vagrant up node2 && vagrant up node1
@@ -19,7 +53,7 @@
    because libvirt will bring up the nodes in parallel and node2 must be up
    before ~pcs cluster auth~.
 
-3) Finish cluster setup manually (if /provisioning/ failed).
+4) Finish cluster setup manually (if /provisioning/ failed).
 
    #+BEGIN_EXAMPLE
      ==> node1: Restarting pcsd on the nodes in order to reload the certificates...
