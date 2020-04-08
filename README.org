@@ -5,7 +5,7 @@
 1) Install the vagrant libvirt plugin if you don't already have it.
 
    #+BEGIN_SRC shell
-     vagrant plugin install libvirt
+     vagrant plugin install vagrant-libvirt
    #+END_SRC
 
 3) Download the CFEngine hub and agent package RPMs for EL6.
