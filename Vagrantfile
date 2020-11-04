@@ -18,7 +18,7 @@ end
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure("2") do |config|
-  config.vm.box = "centos/6"
+  config.vm.box = "centos/7"
 
   config.vm.provider :libvirt do |lv|
     lv.cpus = 2
@@ -62,7 +62,7 @@ Vagrant.configure("2") do |config|
         pcs cluster status
         pcs status
         pcs resource create cfvirtip IPaddr2 ip=192.168.130.100 cidr_netmask=24 --group cfengine
-        pcs cluster enable --all node{1,2}
+        pcs cluster enable --all
         pcs status
     SHELL
 
