@@ -16,7 +16,7 @@ function get_node_keyfile() {
 function get_node_ip () {
     # $1 -- node name
     read id < .vagrant/machines/$1/libvirt/id
-    sudo virsh domifaddr $id | sed -r -e '/ipv4/!d' -e 's/.*\s+ipv4\s+([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}).*/\1/'
+    sudo virsh domifaddr $id | sed -r -e '/ipv4/!d' -e 's/.*\s+ipv4\s+([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}).*/\1/' | head -1
 }
 
 function run_all_serial() {
