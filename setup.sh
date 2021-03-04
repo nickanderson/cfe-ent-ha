@@ -88,6 +88,10 @@ echo "$status"
 lines=`echo "$status" | sed -r -e '/(Masters|Slaves): \[/!d' | wc -l`
 test $lines -eq 2               # one master, one slave
 
+run_all_parallel 'sed -ri s/Requires/Wants/ /usr/lib/systemd/system/cf-hub.service'
+run_all_parallel 'systemctl daemon-reload'
+run_all_parallel 'systemctl mask cf-postgres.service'
+
 run_all_serial '/var/cfengine/bin/cf-agent --bootstrap node1-pg --skip-bootstrap-policy-run'
 run_on $second_node '/var/cfengine/bin/cf-agent --bootstrap node2-pg --skip-bootstrap-policy-run'
 
