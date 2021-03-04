@@ -8,20 +8,20 @@
      vagrant plugin install vagrant-libvirt
    #+END_SRC
 
-3) Download the CFEngine hub and agent package RPMs for EL6.
+3) Download the CFEngine hub and agent package RPMs for EL7.
 
    #+BEGIN_SRC shell
-     wget "http://buildcache.cloud.cfengine.com/packages/packages-hub-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_HUB_x86_64_linux_redhat_6/cfengine-nova-hub-3.15.1-1.el6.x86_64.rpm"
-     wget "http://buildcache.cloud.cfengine.com/packages/packages-agent-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_x86_64_linux_redhat_6/cfengine-nova-3.15.1-1.el6.x86_64.rpm"
+     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.15.3/hub/redhat_7_x86_64/cfengine-nova-hub-3.15.3-1.el7.x86_64.rpm"
+     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.15.3/agent/agent_rhel7_x86_64/cfengine-nova-3.15.3-1.el7.x86_64.rpm"
    #+END_SRC
-   
+
 4) Set the =HUB_PKG= and =HOSTS_PKG= environment variable.
 
    #+BEGIN_SRC shell
-     export HUB_PKG="cfengine-nova-hub-3.15.1-1.el6.x86_64.rpm"
-     export HOSTS_PKG="cfengine-nova-3.15.1-1.el6.x86_64.rpm"
+     export HUB_PKG="cfengine-nova-hub-3.15.3-1.el7.x86_64.rpm"
+     export HOSTS_PKG="cfengine-nova-3.15.3-1.el7.x86_64.rpm"
    #+END_SRC
-   
+
 5) Initialize the environment.
 
    #+BEGIN_SRC shell
@@ -36,13 +36,13 @@
      vagrant plugin install libvirt
    #+END_SRC
 
-2) Download the CFEngine hub and agent package RPMs for EL6.
+2) Download the CFEngine hub and agent package RPMs for EL7.
 
    #+BEGIN_SRC shell
-     wget "http://buildcache.cloud.cfengine.com/packages/packages-hub-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_HUB_x86_64_linux_redhat_6/cfengine-nova-hub-3.15.1-1.el6.x86_64.rpm"
-     wget "http://buildcache.cloud.cfengine.com/packages/packages-agent-3.15.x/jenkins-bootstrap-packages-3.15.x-11/output/PACKAGES_x86_64_linux_redhat_6/cfengine-nova-3.15.1-1.el6.x86_64.rpm"
+     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.15.3/hub/redhat_7_x86_64/cfengine-nova-hub-3.15.3-1.el7.x86_64.rpm"
+     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.15.3/agent/agent_rhel7_x86_64/cfengine-nova-3.15.3-1.el7.x86_64.rpm"
    #+END_SRC
-   
+
 3) Initialize the environment.
 
    #+BEGIN_SRC shell
@@ -466,19 +466,29 @@ How to get node1 back from stopped state? Restarting the cluster seems to work, 
 
 * Configure CFEngine HA
 
-1) Bootstrap *both nodes to node1*.
+1) Mask the 'cf-postgres.service' and make sure it is not required *on both
+   nodes* (PostgreSQL is managed by the cluster resource, not by the service):
 
    #+BEGIN_SRC shell
-     cf-agent --bootstrap node1-pg
+     sed -ri s/Requires/Wants/ /usr/lib/systemd/system/cf-hub.service
+     systemctl daemon-reload
+     systemctl mask cf-postgres.service
    #+END_SRC
 
-2) Bootstrap the *node2* to itself.
+
+2) Bootstrap *both nodes to node1*.
 
    #+BEGIN_SRC shell
-     cf-agent --bootstrap node2-pg
+     cf-agent --bootstrap node1-pg --skip-bootstrap-policy-run
    #+END_SRC
 
-3) Get the host keys and replace them in the config JSON *on both nodes*.
+3) Bootstrap the *node2* to itself.
+
+   #+BEGIN_SRC shell
+     cf-agent --bootstrap node2-pg --skip-bootstrap-policy-run
+   #+END_SRC
+
+4) Get the host keys and replace them in the config JSON *on both nodes*.
 
    #+BEGIN_SRC shell
      cf-key -s
@@ -494,7 +504,7 @@ How to get node1 back from stopped state? Restarting the cluster seems to work, 
    #+END_EXAMPLE
 
 
-3) Write the HA config JSON *on both nodes* with the correct host key SHAs.
+5) Write the HA config JSON *on both nodes* with the correct host key SHAs.
 
 
    #+BEGIN_SRC shell
@@ -516,20 +526,20 @@ How to get node1 back from stopped state? Restarting the cluster seems to work, 
      EOF
    #+END_SRC
 
-4) Enable HA *on both nodes* in the =/var/cfengine/masterfiles/controls/def.cf=
+6) Enable HA *on both nodes* in the =/var/cfengine/masterfiles/controls/def.cf=
    file by uncommenting the following line and commenting out the line above it.
 
    #+BEGIN_SRC
      #"enable_cfengine_enterprise_hub_ha" expression => "enterprise_edition";
    #+END_SRC
 
-5) Trigger the policy update *on both nodes*.
+7) Trigger the policy update *on both nodes*.
 
    #+BEGIN_SRC shell
      cf-agent -Kf update.cf
    #+END_SRC
 
-6) Restart CFEngine (may not be needed?). I think this is necessary if MP is to
+8) Restart CFEngine (may not be needed?). I think this is necessary if MP is to
    be run on the VIP. Also in order for MP to show status reports must be
    collected from both node1 and node2. Until then it may show that HA is not
    configured or that it is degraded because one of the hosts is not reporting
