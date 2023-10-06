@@ -10,7 +10,8 @@ function vagrant_cluster_up() {
     # $1 -- optional argument specifying a sleep period between provisioning
     #       node2 and node1
     set -x
-    vagrant up --provider=libvirt --no-provision node{1,2}
+    #vagrant up --provider=libvirt --no-provision node{1,2}
+    vagrant up --no-provision node{1,2}
     vagrant provision node2
     if [ $# -gt 0 ]; then
         sleep $1;
@@ -26,6 +27,8 @@ function first() {
 function second() {
     echo $2
 }
+
+which parallel || (echo "Parallel is missing!" && exit 1)
 
 echo "Getting the sudo cookie"
 sudo echo "Thanks! Now let's hope it won't timeout too soon."
@@ -66,7 +69,7 @@ run_on $first_node 'pcs resource create cfpgsql pgsql  \
   tmpdir="/var/cfengine/state/pg/tmp" \
   rep_mode="async" node_list="node1 node2" \
   primary_conninfo_opt="keepalives_idle=60 keepalives_interval=5 keepalives_count=5" \
-  master_ip="192.168.130.100" restart_on_promote="true" \
+  master_ip="192.168.60.100" restart_on_promote="true" \
   logfile="/var/log/postgresql.log" \
   config="/var/cfengine/state/pg/data/postgresql.conf" \
   check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/data/pg_arch/%f %p" \
@@ -96,8 +99,8 @@ run_all_serial '/var/cfengine/bin/cf-agent --bootstrap node1-pg --skip-bootstrap
 run_on $second_node '/var/cfengine/bin/cf-agent --bootstrap node2-pg --skip-bootstrap-policy-run'
 
 cf_key_s=`run_on_silent $second_node '/var/cfengine/bin/cf-key -s'`
-first_key=` echo "$cf_key_s" | sed -r -e '/192\.168\.130\.10/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
-second_key=`echo "$cf_key_s" | sed -r -e '/192\.168\.130\.11/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
+first_key=` echo "$cf_key_s" | sed -r -e '/192\.168\.60\.10/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
+second_key=`echo "$cf_key_s" | sed -r -e '/192\.168\.60\.11/!d' -e 's/^.*SHA=([a-z0-9]+).*/\1/' | sort | uniq`
 
 run_all_parallel 'cp /vagrant/ha_info.json.template /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json'
 run_all_parallel "sed -ri s/@NODE1_PKSHA@/$first_key/ /var/cfengine/masterfiles/cfe_internal/enterprise/ha/ha_info.json"
@@ -112,6 +115,6 @@ run_all_parallel '/var/cfengine/bin/cf-agent -KI'
 run_all_parallel 'service cfengine3 restart'
 run_all_parallel 'chkconfig cfengine3 on'
 
-vagrant up --provider=libvirt node3
+vagrant up node3
 
-echo "Done! Go ahead and try logging in at https://192.168.130.100"
+echo "Done! Go ahead and try logging in at https://192.168.60.100"

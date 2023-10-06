@@ -2,32 +2,45 @@
 
 * Bringing up the environment automatically
 
-1) Install the vagrant libvirt plugin if you don't already have it.
+1) Set environment variables and download the CFEngine hub and agent package RPMs for EL7.
 
-   #+BEGIN_SRC shell
-     vagrant plugin install vagrant-libvirt
-   #+END_SRC
+  #+begin_src shell
+  HUB_PKG_URL="http://buildcache.cfengine.com/packages/testing-pr/jenkins-pr-pipeline-9926/PACKAGES_HUB_x86_64_linux_redhat_7/cfengine-nova-hub-3.21.3-1.el7.x86_64.rpm"
+  export HUB_PKG="$(basename $HUB_PKG_URL)"
+  if [ ! -e $HUB_PKG ]; then wget "$HUB_PKG_URL" fi
+  AGENT_PKG_URL="http://buildcache.cfengine.com/packages/testing-pr/jenkins-pr-pipeline-9926/PACKAGES_x86_64_linux_redhat_7/cfengine-nova-3.21.3-1.el7.x86_64.rpm"
+  export HOSTS_PKG="$(basename $HUB_PKG_URL)"
+  if [ ! -e $HOSTS_PKG ]; then wget "$AGENT_PKG_URL" fi
+  wget "$AGENT_PKG_URL"
+#+end_src
 
-3) Download the CFEngine hub and agent package RPMs for EL7.
+2) Initialize the environment.
 
-   #+BEGIN_SRC shell
-     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.15.3/hub/redhat_7_x86_64/cfengine-nova-hub-3.15.3-1.el7.x86_64.rpm"
-     wget "https://cfengine-package-repos.s3.amazonaws.com/enterprise/Enterprise-3.15.3/agent/agent_rhel7_x86_64/cfengine-nova-3.15.3-1.el7.x86_64.rpm"
-   #+END_SRC
+  #+begin_src shell
+ ./setup.sh
+#+end_src
 
-4) Set the =HUB_PKG= and =HOSTS_PKG= environment variable.
 
-   #+BEGIN_SRC shell
-     export HUB_PKG="cfengine-nova-hub-3.15.3-1.el7.x86_64.rpm"
-     export HOSTS_PKG="cfengine-nova-3.15.3-1.el7.x86_64.rpm"
-   #+END_SRC
+Need to re-IP everything to the default vagrant range, =192.168.56.0/21=
 
-5) Initialize the environment.
+- HostMin:   192.168.56.1
+- HostMax:   192.168.63.254
+- Broadcast: 192.168.63.255
 
-   #+BEGIN_SRC shell
-    ./setup.sh
-   #+END_SRC
+IPs are in several places.
+- Vagrantfile
+- setup.sh
+- hainfo_.json.template
 
+|          OLD IP | NEW IP |
+|-----------------+--------|
+|   192.168.30.10 |    192.168.56.10     |
+|   192.168.30.11 |    192.168.56.11     |
+|  192.168.130.10 |   192.168.60.10     |
+|  192.168.130.11 |   192.168.60.11     |
+|  192.168.130.12 |   192.168.60.12     |
+| 192.168.130.100 |  192.168.60.100     |
+|                 |        |
 * Bringing up the environment manually
 
 1) Install the vagrant libvirt plugin if you don't already have it.
@@ -131,7 +144,7 @@
      usesysid         | 10
      usename          | cfpostgres
      application_name | node2
-     client_addr      | 192.168.130.11
+     client_addr      | 192.168.60.11
      client_hostname  | node2-pg
      client_port      | 60036
      backend_start    | 2018-10-05 19:06:56.599435+00
@@ -167,7 +180,7 @@
        tmpdir="/var/cfengine/state/pg/tmp" \
        rep_mode="async" node_list="node1 node2" \
        primary_conninfo_opt="keepalives_idle=60 keepalives_interval=5 keepalives_count=5" \
-       master_ip="192.168.130.100" restart_on_promote="true" \
+       master_ip="192.168.60.100" restart_on_promote="true" \
        logfile="/var/log/postgresql.log" \
        config="/var/cfengine/state/pg/data/postgresql.conf" \
        check_wal_receiver=true restore_command="cp /var/cfengine/state/pg/data/pg_arch/%f %p" \
@@ -496,8 +509,8 @@ How to get node1 back from stopped state? Restarting the cluster seems to work, 
 
    #+BEGIN_EXAMPLE
      Direction  IP              Name   Last connection           Key
-     Incoming   192.168.30.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
-     Outgoing   192.168.30.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
+     Incoming   192.168.56.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
+     Outgoing   192.168.56.11    node2  Mon Oct  8 16:50:47 2018  SHA=704603762896e830e25fef1ea61e67e9164772026b7919eaa529b7f49003791b
      Incoming   192.168.100.10  -      Mon Oct  8 17:00:32 2018  SHA=a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749
      Outgoing   192.168.100.10  -      Mon Oct  8 16:59:43 2018  SHA=a95e3ac66edbebcc08d2c84f1b2db2e05da4f8d48a98dffc4e9bdd210b698749
      Total Entries: 4

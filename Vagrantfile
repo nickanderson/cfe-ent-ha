@@ -27,8 +27,8 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "node1".to_sym do |node|
-    node.vm.network :private_network, ip: "192.168.30.10"
-    node.vm.network :private_network, ip: "192.168.130.10"
+    node.vm.network :private_network, ip: "192.168.56.10"
+    node.vm.network :private_network, ip: "192.168.60.10"
 
     # node.vm.provision "shell", inline: <<-SHELL
     #     yum -y update
@@ -38,19 +38,21 @@ Vagrant.configure("2") do |config|
         set -xe
         yum -y install pcs pacemaker cman fence-agents
         hostname node1
-        echo "192.168.30.10 node1" >> /etc/hosts
-        echo "192.168.30.11 node2" >> /etc/hosts
-        echo "192.168.130.10 node1-pg" >> /etc/hosts
-        echo "192.168.130.11 node2-pg" >> /etc/hosts
-        echo "192.168.130.12 node3" >> /etc/hosts
-        echo "192.168.130.100 ha-hub" >> /etc/hosts
-        service pcsd start
-        chkconfig pcsd on
+        echo "192.168.56.10 node1" >> /etc/hosts
+        echo "192.168.56.11 node2" >> /etc/hosts
+        echo "192.168.60.10 node1-pg" >> /etc/hosts
+        echo "192.168.60.11 node2-pg" >> /etc/hosts
+        echo "192.168.60.12 node3" >> /etc/hosts
+        echo "192.168.60.100 ha-hub" >> /etc/hosts
+        #service pcsd start
+        #chkconfig pcsd on
+        systemctl enable pcsd
+        systemctl start pcsd
         cp /vagrant/pgsql /usr/lib/ocf/resource.d/heartbeat/pgsql
         chown --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
         chmod --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
-        printf "hacluster\\nhacluster\\n" | passwd hacluster
-        pcs cluster auth node{1,2} -u hacluster -p hacluster
+        printf "CFEngine1234\\nCFEngine1234\\n" | passwd hacluster
+        pcs cluster auth node{1,2} -u hacluster -p CFEngine1234
         pcs cluster setup --name cfcluster node{1,2}
         sleep 1m
         pcs cluster start --all
@@ -61,16 +63,19 @@ Vagrant.configure("2") do |config|
         pcs resource defaults migration-threshold="1"
         pcs cluster status
         pcs status
-        pcs resource create cfvirtip IPaddr2 ip=192.168.130.100 cidr_netmask=24 --group cfengine
+        pcs resource create cfvirtip IPaddr2 ip=192.168.60.100 cidr_netmask=24 --group cfengine
         pcs cluster enable --all
         pcs status
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
         set -xe
+        yum -y install python3
         rpm -i /vagrant/#{hub_pkg}
-        service cfengine3 stop
-        chkconfig cfengine3 off
+        #service cfengine3 stop
+        #chkconfig cfengine3 off
+        systemctl stop cfengine3
+        systemctl disable cfengine3
         cat <<EOF > /var/cfengine/ha.cfg
 cmp_master: PRI
 cmp_slave: HS:async,HS:sync,HS:alone
@@ -91,8 +96,8 @@ EOF
   end
 
   config.vm.define "node2".to_sym do |node|
-    node.vm.network :private_network, ip: "192.168.30.11"
-    node.vm.network :private_network, ip: "192.168.130.11"
+    node.vm.network :private_network, ip: "192.168.56.11"
+    node.vm.network :private_network, ip: "192.168.60.11"
 
     # node.vm.provision "shell", inline: <<-SHELL
     #     yum -y update
@@ -102,15 +107,17 @@ EOF
         set -xe
         yum -y install pcs pacemaker cman fence-agents
         hostname node2
-        echo "192.168.30.10 node1" >> /etc/hosts
-        echo "192.168.30.11 node2" >> /etc/hosts
-        echo "192.168.130.10 node1-pg" >> /etc/hosts
-        echo "192.168.130.11 node2-pg" >> /etc/hosts
-        echo "192.168.130.12 node3" >> /etc/hosts
-        echo "192.168.130.100 ha-hub" >> /etc/hosts
-        service pcsd start
-        chkconfig pcsd on
-        printf "hacluster\\nhacluster\\n" | passwd hacluster
+        echo "192.168.56.10 node1" >> /etc/hosts
+        echo "192.168.56.11 node2" >> /etc/hosts
+        echo "192.168.60.10 node1-pg" >> /etc/hosts
+        echo "192.168.60.11 node2-pg" >> /etc/hosts
+        echo "192.168.60.12 node3" >> /etc/hosts
+        echo "192.168.60.100 ha-hub" >> /etc/hosts
+        #service pcsd start
+        #chkconfig pcsd on
+        systemctl enable pcsd
+        systemctl start pcsd
+        printf "CFEngine1234\\nCFEngine1234\\n" | passwd hacluster
         rm -f /usr/lib/ocf/resource.d/heartbeat/pgsql
         cp -f /vagrant/pgsql /usr/lib/ocf/resource.d/heartbeat/pgsql
         chown --reference /usr/lib/ocf/resource.d/heartbeat/{IPaddr2,pgsql}
@@ -118,9 +125,12 @@ EOF
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
+        yum -y install python3
         rpm -i /vagrant/#{hub_pkg}
-        service cfengine3 stop
-        chkconfig cfengine3 off
+        #service cfengine3 stop
+        #chkconfig cfengine3 off
+        systemctl stop cfengine3
+        systemctl disable cfengine3
         cat <<EOF > /var/cfengine/ha.cfg
 cmp_master: PRI
 cmp_slave: HS:async,HS:sync,HS:alone
@@ -130,17 +140,17 @@ EOF
   end
 
   config.vm.define "node3".to_sym do |node|
-    node.vm.network :private_network, ip: "192.168.130.12"
+    node.vm.network :private_network, ip: "192.168.60.12"
 
     node.vm.provision "shell", inline: <<-SHELL
         set -xe
         hostname node3
-        echo "192.168.30.10 node1" >> /etc/hosts
-        echo "192.168.30.11 node2" >> /etc/hosts
-        echo "192.168.130.10 node1-pg" >> /etc/hosts
-        echo "192.168.130.11 node2-pg" >> /etc/hosts
-        echo "192.168.130.12 node3" >> /etc/hosts
-        echo "192.168.130.100 ha-hub" >> /etc/hosts
+        echo "192.168.56.10 node1" >> /etc/hosts
+        echo "192.168.56.11 node2" >> /etc/hosts
+        echo "192.168.60.10 node1-pg" >> /etc/hosts
+        echo "192.168.60.11 node2-pg" >> /etc/hosts
+        echo "192.168.60.12 node3" >> /etc/hosts
+        echo "192.168.60.100 ha-hub" >> /etc/hosts
     SHELL
 
     node.vm.provision "shell", inline: <<-SHELL
